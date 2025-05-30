@@ -14,7 +14,17 @@ from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.templating import Jinja2Templates
+
+from dotenv import load_dotenv
 import os
+
+load_dotenv(override=True)  # Loads .env into environment variables
+
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+
+print("TELEGRAM_BOT_TOKEN:", TELEGRAM_BOT_TOKEN)
+print("TELEGRAM_CHAT_ID:", TELEGRAM_CHAT_ID)
 
 # --- Configuration ---
 trading_pairs = [
@@ -26,8 +36,6 @@ trading_pairs = [
 ]
 
 profit_threshold_percent = 0.0
-TELEGRAM_BOT_TOKEN = '8147123901:AAHUs4Jv9F-Pu6Me8FvkbvOPDMI7K6a21ms'
-TELEGRAM_CHAT_ID = '7779414328'
 LOG_FILE = "arbitrage_log.txt"
 SENT_ALERTS = set()
 
