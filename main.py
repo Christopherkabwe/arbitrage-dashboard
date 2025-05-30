@@ -23,9 +23,6 @@ load_dotenv(override=True)  # Loads .env into environment variables
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
-print("TELEGRAM_BOT_TOKEN:", TELEGRAM_BOT_TOKEN)
-print("TELEGRAM_CHAT_ID:", TELEGRAM_CHAT_ID)
-
 # --- Configuration ---
 trading_pairs = [
     'BTC/USDT', 'ETH/USDT', 'SOL/USDT',
