@@ -1,14 +1,13 @@
 import ccxt
 import time
 import requests
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 import json
-import asyncio
 import threading
 
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from fastapi.templating import Jinja2Templates
 
 from dotenv import load_dotenv
@@ -100,32 +99,25 @@ def find_arbitrage(symbol):
     return None
 
 def save_opportunities_to_file(new_opportunities):
-    # Load old data
     try:
         with open("arbitrage_data.json", "r", encoding="utf-8") as f:
             old_data = json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
         old_data = []
 
-    # Add timestamp to each new opportunity
     timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
     for opp in new_opportunities:
         opp["timestamp"] = timestamp
 
-    # Append new opportunities to old data
     combined = old_data + new_opportunities
-
-    # Limit history size (last 100 entries)
     combined = combined[-100:]
 
-    # Save back
     with open("arbitrage_data.json", "w", encoding="utf-8") as f:
         json.dump(combined, f, indent=2)
 
 # --- FastAPI app setup ---
 app = FastAPI()
 
-# Mount static directory (for favicon or css)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 templates = Jinja2Templates(directory="templates")
@@ -135,7 +127,9 @@ async def favicon():
     file_path = os.path.join("static", "favicon.ico")
     return FileResponse(file_path)
 
-from datetime import datetime, timezone, timedelta
+@app.api_route("/health", methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
+async def health_check(request: Request):
+    return PlainTextResponse("OK", status_code=200)
 
 @app.get("/")
 async def home(request: Request):
@@ -144,26 +138,23 @@ async def home(request: Request):
         with open("arbitrage_data.json", "r") as f:
             opportunities = json.load(f)
 
-        # Convert timestamps to datetime objects for sorting
         for opp in opportunities:
             try:
                 opp['timestamp_dt'] = datetime.strptime(opp['timestamp'], "%Y-%m-%d %H:%M:%S UTC")
             except Exception:
-                opp['timestamp_dt'] = datetime.min  # fallback if parsing fails
+                opp['timestamp_dt'] = datetime.min
 
-        # Sort by timestamp descending, then profit descending
         opportunities.sort(
             key=lambda x: (x['timestamp_dt'], x.get('profit_percent', 0)),
             reverse=True
         )
 
-        # Convert UTC timestamps to Zambia local time strings (CAT, UTC+2)
         for opp in opportunities:
             try:
                 utc_time = opp['timestamp_dt'].replace(tzinfo=timezone.utc).astimezone(timezone(timedelta(hours=2)))
                 opp['timestamp_zambia'] = utc_time.strftime("%Y-%m-%d %I:%M %p")
             except Exception:
-                opp['timestamp_zambia'] = opp['timestamp']  # fallback
+                opp['timestamp_zambia'] = opp['timestamp']
 
     except Exception as e:
         print(f"Error loading arbitrage data: {e}")
@@ -176,8 +167,17 @@ async def home(request: Request):
         "last_updated": last_updated
     })
 
+@app.get("/api/opportunities")
+async def get_opportunities():
+    try:
+        with open("arbitrage_data.json", "r", encoding="utf-8") as f:
+            opportunities = json.load(f)
+        return JSONResponse(content={"opportunities": opportunities})
+    except Exception as e:
+        print(f"Error reading arbitrage data for API: {e}")
+        return JSONResponse(content={"opportunities": []})
 
-# --- Scanner running in a separate thread ---
+# --- Scanner thread ---
 def scanner_loop():
     while True:
         print("\n--- Scanning for Arbitrage Opportunities ---")
@@ -194,28 +194,9 @@ def start_scanner_thread():
     thread = threading.Thread(target=scanner_loop, daemon=True)
     thread.start()
 
-# Start scanner on FastAPI startup
 @app.on_event("startup")
 async def startup_event():
     start_scanner_thread()
-
-from fastapi.responses import JSONResponse
-
-@app.get("/api/opportunities")
-async def get_opportunities():
-    try:
-        with open("arbitrage_data.json", "r", encoding="utf-8") as f:
-            opportunities = json.load(f)
-        return JSONResponse(content={"opportunities": opportunities})
-    except Exception as e:
-        print(f"Error reading arbitrage data for API: {e}")
-        return JSONResponse(content={"opportunities": []})
-from fastapi import Request
-from fastapi.responses import PlainTextResponse
-
-@app.api_route("/health", methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
-async def health_check(request: Request):
-    return PlainTextResponse("OK", status_code=200)
 
 if __name__ == "__main__":
     import uvicorn
