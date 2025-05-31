@@ -5,10 +5,6 @@ from datetime import datetime
 import json
 import asyncio
 import threading
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=10000)
-
 
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
@@ -214,3 +210,13 @@ async def get_opportunities():
     except Exception as e:
         print(f"Error reading arbitrage data for API: {e}")
         return JSONResponse(content={"opportunities": []})
+from fastapi import Request
+from fastapi.responses import PlainTextResponse
+
+@app.api_route("/health", methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
+async def health_check(request: Request):
+    return PlainTextResponse("OK", status_code=200)
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=10000)
