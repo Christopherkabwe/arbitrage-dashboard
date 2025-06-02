@@ -1,0 +1,46 @@
+name: Restart Render Service Hourly
+
+on:
+  schedule:
+    - cron: '0 * * * *'  # Every hour on the hour
+  workflow_dispatch:     # Allow manual runs from GitHub
+
+jobs:
+  restart:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Run restart script
+        env:
+          RENDER_API_TOKEN: ${{ secrets.RENDER_API_TOKEN }}
+          RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
+        run: |
+          python <<EOF
+          import os
+          import requests
+
+          api_token = os.environ["RENDER_API_TOKEN"]
+          service_id = os.environ["RENDER_SERVICE_ID"]
+          headers = {
+              "Authorization": f"Bearer {api_token}",
+              "Accept": "application/json",
+              "Content-Type": "application/json"
+          }
+          url = f"https://api.render.com/v1/services/{service_id}/restart"
+          response = requests.post(url, headers=headers)
+          if response.status_code == 200:
+              print("✅ Service restarted successfully.")
+          else:
+              print(f"❌ Failed. Status: {response.status_code}, Message: {response.text}")
+          EOF
